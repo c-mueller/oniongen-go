@@ -21,7 +21,7 @@ import (
 var (
 	genCount = uint64(0)
 
-	pattern    = kingpin.Arg("pattern", "The Regex pattern to look for").Regexp()
+	pattern    = kingpin.Arg("pattern", "The Regex pattern to look for").Required().Regexp()
 	matchCount = kingpin.Arg("match-count", "The number of matches to look for until termination").Default("1").Int()
 	cpuCount   = kingpin.Flag("num-cpu", "The number of CPU cores to run on").Default(fmt.Sprint(runtime.NumCPU())).Int()
 )
