@@ -6,6 +6,7 @@ import (
 	"crypto/sha512"
 	"encoding/base32"
 	"fmt"
+	"golang.org/x/crypto/sha3"
 	"io/ioutil"
 	"os"
 	"regexp"
@@ -13,9 +14,11 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-
-	"golang.org/x/crypto/sha3"
+	"sync/atomic"
+	"time"
 )
+
+var genCount = uint64(0)
 
 func generate(wg *sync.WaitGroup, re *regexp.Regexp) {
 
@@ -32,6 +35,7 @@ func generate(wg *sync.WaitGroup, re *regexp.Regexp) {
 			save(onionAddress, publicKey, expandSecretKey(secretKey))
 			wg.Done()
 		}
+		atomic.AddUint64(&genCount, 1)
 	}
 }
 
@@ -103,7 +107,22 @@ func main() {
 		go generate(&wg, re)
 	}
 
+	tick := time.NewTicker(time.Second * 10)
+	go func() {
+
+		start := time.Now()
+		for range tick.C {
+			currTime := time.Now()
+			tdiff := currTime.Sub(start)
+			rate := float64(genCount) / tdiff.Seconds()
+
+			fmt.Printf("[%08d]: Computed %d Keys (Rate: %f per Second)\n", int(tdiff.Seconds()), genCount, rate)
+		}
+
+	}()
+
 	// Exit after the desired number of addresses have been found.
 	wg.Wait()
+	tick.Stop()
 
 }
