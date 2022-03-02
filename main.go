@@ -7,18 +7,28 @@ import (
 	"encoding/base32"
 	"fmt"
 	"golang.org/x/crypto/sha3"
+	"gopkg.in/alecthomas/kingpin.v2"
 	"io/ioutil"
 	"os"
 	"regexp"
 	"runtime"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 )
 
-var genCount = uint64(0)
+var (
+	genCount = uint64(0)
+
+	pattern    = kingpin.Arg("pattern", "The Regex pattern to look for").Regexp()
+	matchCount = kingpin.Arg("match-count", "The number of matches to look for until termination").Default("1").Int()
+	cpuCount   = kingpin.Flag("num-cpu", "The number of CPU cores to run on").Default(fmt.Sprint(runtime.NumCPU())).Int()
+)
+
+func init() {
+	kingpin.Parse()
+}
 
 func generate(wg *sync.WaitGroup, re *regexp.Regexp) {
 
@@ -88,23 +98,13 @@ func checkErr(err error) {
 }
 
 func main() {
+	runtime.GOMAXPROCS(*cpuCount)
 
-	// Set runtime to use all available CPUs.
-	runtime.GOMAXPROCS(runtime.NumCPU())
-
-	// Compile regex from first argument.
-	re, _ := regexp.Compile(os.Args[1])
-
-	// Get the number of desired addreses from second argument.
-	numAddresses, _ := strconv.Atoi(os.Args[2])
-
-	// WaitGroup of size equal to desired number of addresses
 	var wg sync.WaitGroup
-	wg.Add(numAddresses)
+	wg.Add(*matchCount)
 
-	// For each CPU, run a generate goroutine
-	for i := 0; i < runtime.NumCPU(); i++ {
-		go generate(&wg, re)
+	for i := 0; i < *cpuCount; i++ {
+		go generate(&wg, *pattern)
 	}
 
 	tick := time.NewTicker(time.Second * 10)
@@ -121,7 +121,6 @@ func main() {
 
 	}()
 
-	// Exit after the desired number of addresses have been found.
 	wg.Wait()
 	tick.Stop()
 
